@@ -1,0 +1,44 @@
+RewriteEngine On
+
+# Legacy root routes
+RewriteRule ^vattu\.php$ modules/vat-tu/index.php [L]
+RewriteRule ^them_vattu\.php$ modules/vat-tu/create.php [L]
+RewriteRule ^sua_vattu\.php$ modules/vat-tu/edit.php [L,QSA]
+RewriteRule ^xoa_vattu\.php$ modules/vat-tu/delete.php [L,QSA]
+
+RewriteRule ^danhmuc\.php$ modules/danh-muc/index.php [L]
+RewriteRule ^themdanhmuc\.php$ modules/danh-muc/create.php [L]
+RewriteRule ^sua_danhmuc\.php$ modules/danh-muc/edit.php [L,QSA]
+RewriteRule ^xoa_danhmuc\.php$ modules/danh-muc/delete.php [L,QSA]
+
+RewriteRule ^khachhang\.php$ modules/khach-hang/index.php [L]
+RewriteRule ^them_khachhang\.php$ modules/khach-hang/create.php [L]
+RewriteRule ^sua_khachhang\.php$ modules/khach-hang/edit.php [L,QSA]
+RewriteRule ^xoa_khachhang\.php$ modules/khach-hang/delete.php [L,QSA]
+
+RewriteRule ^hopdong\.php$ modules/hop-dong/index.php [L]
+RewriteRule ^them_hopdong\.php$ modules/hop-dong/create.php [L]
+RewriteRule ^sua_hopdong\.php$ modules/hop-dong/edit.php [L,QSA]
+RewriteRule ^xoa_hopdong\.php$ modules/hop-dong/delete.php [L,QSA]
+RewriteRule ^chi_tiet_hopdong\.php$ modules/hop-dong/detail.php [L,QSA]
+
+RewriteRule ^phieunhap\.php$ modules/phieu-nhap/index.php [L]
+RewriteRule ^them_phieunhap\.php$ modules/phieu-nhap/create.php [L]
+RewriteRule ^sua_phieunhap\.php$ modules/phieu-nhap/edit.php [L,QSA]
+RewriteRule ^xoa_phieunhap\.php$ modules/phieu-nhap/delete.php [L,QSA]
+RewriteRule ^chi_tiet_phieunhap\.php$ modules/phieu-nhap/detail.php [L,QSA]
+
+RewriteRule ^nhacungcap\.php$ modules/nha-cung-cap/index.php [L]
+RewriteRule ^them_nhacungcap\.php$ modules/nha-cung-cap/create.php [L]
+RewriteRule ^sua_nhacungcap\.php$ modules/nha-cung-cap/edit.php [L,QSA]
+RewriteRule ^xoa_nhacungcap\.php$ modules/nha-cung-cap/delete.php [L,QSA]
+
+# Legacy nested routes
+RewriteRule ^donvitinh/donvi\.php$ modules/don-vi-tinh/index.php [L]
+RewriteRule ^donvitinh/themdonvitinh\.php$ modules/don-vi-tinh/create.php [L]
+RewriteRule ^donvitinh/xoa_donvi\.php$ modules/don-vi-tinh/delete.php [L,QSA]
+
+RewriteRule ^loaivt/loaivattu\.php$ modules/loai-vat-tu/index.php [L]
+RewriteRule ^loaivt/them_loaivt\.php$ modules/loai-vat-tu/create.php [L]
+RewriteRule ^loaivt/sua_loaivt\.php$ modules/loai-vat-tu/edit.php [L,QSA]
+RewriteRule ^loaivt/xoa_loaivt\.php$ modules/loai-vat-tu/delete.php [L,QSA]

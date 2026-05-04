@@ -1,35 +1,98 @@
-<?php require_once __DIR__ . '/../../bootstrap.php'; ?>
-<?php
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $ma = $conn->real_escape_string(trim($_POST['maHDong'] ?? ''));
-    $maKH = $conn->real_escape_string(trim($_POST['maKH'] ?? ''));
-    $maNV = $conn->real_escape_string(trim($_POST['maNV_Lap'] ?? ''));
-    $ngayky = $conn->real_escape_string($_POST['ngayky'] ?? date('Y-m-d'));
-    $ngayhieuluc = $conn->real_escape_string($_POST['ngayhieuluc'] ?? '');
-    $ngayhethan = $conn->real_escape_string($_POST['ngayhethan'] ?? '');
-    $thoigiangiaohang = $conn->real_escape_string($_POST['thoigiangiaohang'] ?? '');
-    $thoihanthanhtoan = (int) ($_POST['thoihanthanhtoan'] ?? 0);
-    $tongtruocthue = (float) ($_POST['tongtruocthue'] ?? 0);
-    $thue = (float) ($_POST['thue'] ?? 0);
-    $tonggiatri = $tongtruocthue + $thue;
-    $pttt = $conn->real_escape_string(trim($_POST['phuongthucthanhtoan'] ?? 'Tien mat'));
-    $trangthai = $conn->real_escape_string(trim($_POST['trangthai'] ?? 'Moi tao'));
+﻿<?php
+require_once __DIR__ . '/../../bootstrap.php';
 
-    if ($ma === '' || $maKH === '' || $maNV === '') {
-        $error = "Vui long nhap ma hop dong, khach hang, nhan vien.";
-    } else {
-        $sql = "INSERT INTO HopDong(maHDong, maKH, maNV_Lap, thoigiangiaohang, ngayky, thoihanthanhtoan, tongtruocthue, thue, tonggiatriHopDong, ngayhieuluc, trangthai, ngayhethan, phuongthucthanhtoan)
-                VALUES('$ma', '$maKH', '$maNV',
-                       " . ($thoigiangiaohang !== '' ? "'$thoigiangiaohang 00:00:00'" : "NULL") . ",
-                       '$ngayky 00:00:00',
-                       $thoihanthanhtoan, $tongtruocthue, $thue, $tonggiatri,
-                       " . ($ngayhieuluc !== '' ? "'$ngayhieuluc 00:00:00'" : "NULL") . ",
-                       '$trangthai',
-                       " . ($ngayhethan !== '' ? "'$ngayhethan 00:00:00'" : "NULL") . ",
-                       '$pttt')";
-        if ($conn->query($sql)) { header("Location: index.php"); exit; }
-        $error = "Loi: " . $conn->error;
+$VALID_TT = ['Moi tao', 'Dang thuc hien', 'Hoan thanh', 'Huy'];
+$VALID_PTTT = ['Tien mat', 'Chuyen khoan', 'Cong no'];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $ma = trim($_POST['maHDong'] ?? '');
+    $maKH = trim($_POST['maKH'] ?? '');
+    $maNV = trim($_POST['maNV_Lap'] ?? '');
+    $ngayKy = $_POST['ngayky'] ?? '';
+    $ngayHL = $_POST['ngayhieuluc'] ?? '';
+    $ngayHH = $_POST['ngayhethan'] ?? '';
+    $truoc = (float) ($_POST['tongtruocthue'] ?? 0);
+    $thuePercent = (float) ($_POST['thue'] ?? 0);
+    $pttt = trim($_POST['phuongthucthanhtoan'] ?? 'Tien mat');
+    $trangthai = trim($_POST['trangthai'] ?? 'Moi tao');
+    $errors = [];
+
+    if ($ma === '') $errors[] = '[R01] Ma hop dong khong duoc de trong.';
+    if ($maKH === '') $errors[] = '[R01] Khach hang khong duoc de trong.';
+    if ($maNV === '') $errors[] = '[R01] Nhan vien khong duoc de trong.';
+
+    if ($ma !== '' && !preg_match('/^[A-Za-z0-9._\-]{1,50}$/', $ma)) {
+        $errors[] = '[R02] Ma hop dong chi gom chu, so, dau . _ - va toi da 50 ky tu.';
     }
+
+    if ($ma !== '' && preg_match('/^[A-Za-z0-9._\-]{1,50}$/', $ma)) {
+        if (db_exists($conn, "SELECT maHDong FROM HopDong WHERE maHDong = ? LIMIT 1", 's', [$ma])) {
+            $errors[] = "[R04] Ma hop dong '$ma' da ton tai.";
+        }
+    }
+
+    if ($maKH !== '' && !db_exists($conn, "SELECT maKH FROM KhachHang WHERE maKH = ? LIMIT 1", 's', [$maKH])) {
+        $errors[] = "[R06] Khach hang '$maKH' khong ton tai.";
+    }
+    if ($maNV !== '' && !db_exists($conn, "SELECT maNV FROM NhanVien WHERE maNV = ? LIMIT 1", 's', [$maNV])) {
+        $errors[] = "[R06] Nhan vien '$maNV' khong ton tai.";
+    }
+
+    if (!in_array($trangthai, $VALID_TT, true)) $errors[] = '[R07] Trang thai khong hop le.';
+    if (!in_array($pttt, $VALID_PTTT, true)) $errors[] = '[R07] Phuong thuc thanh toan khong hop le.';
+
+    if ($truoc < 0) $errors[] = '[R09] Tong truoc thue phai >= 0.';
+    if ($thuePercent < 0 || $thuePercent > 100) $errors[] = '[R09] Thue (%) phai trong [0..100].';
+
+    if ($ngayKy !== '' && strtotime($ngayKy) === false) $errors[] = '[R10] Ngay ky khong hop le.';
+    if ($ngayHL !== '' && strtotime($ngayHL) === false) $errors[] = '[R10] Ngay hieu luc khong hop le.';
+    if ($ngayHH !== '' && strtotime($ngayHH) === false) $errors[] = '[R10] Ngay het han khong hop le.';
+
+    if ($ngayHL !== '' && $ngayHH !== '' && strtotime($ngayHL) !== false && strtotime($ngayHH) !== false) {
+        if (strtotime($ngayHH) < strtotime($ngayHL)) {
+            $errors[] = '[R11] Ngay het han phai >= ngay hieu luc.';
+        }
+    }
+
+    if (empty($errors)) {
+        $thue = round($truoc * $thuePercent / 100, 2);
+        $tong = $truoc + $thue;
+        $ngayKyFmt = $ngayKy !== '' ? date('Y-m-d H:i:s', strtotime($ngayKy)) : null;
+        $ngayHLFmt = $ngayHL !== '' ? date('Y-m-d H:i:s', strtotime($ngayHL)) : null;
+        $ngayHHFmt = $ngayHH !== '' ? date('Y-m-d H:i:s', strtotime($ngayHH)) : null;
+
+        try {
+            $stmt = $conn->prepare(
+                "INSERT INTO HopDong
+                 (maHDong, maKH, maNV_Lap, ngayky, ngayhieuluc, ngayhethan,
+                  tongtruocthue, thue, tonggiatriHopDong, phuongthucthanhtoan, trangthai)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+            );
+            $stmt->bind_param(
+                'ssssssdddss',
+                $ma,
+                $maKH,
+                $maNV,
+                $ngayKyFmt,
+                $ngayHLFmt,
+                $ngayHHFmt,
+                $truoc,
+                $thue,
+                $tong,
+                $pttt,
+                $trangthai
+            );
+            $stmt->execute();
+            $stmt->close();
+            header('Location: index.php');
+            exit;
+        } catch (Throwable $e) {
+            error_log('[HopDong-Create] ' . $e->getMessage());
+            $errors[] = 'Loi khi luu. Vui long thu lai.';
+        }
+    }
+
+    $error = implode('<br>', $errors);
 }
 ?>
 <?php require_once APP_ROOT . '/shared/layout.php'; ?>
@@ -40,40 +103,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <form method="POST">
         <div class="row">
-            <div class="col-md-4 mb-3"><label>Ma HD *</label><input type="text" name="maHDong" class="form-control" value="<?= htmlspecialchars($_POST['maHDong'] ?? '') ?>" required></div>
-            <div class="col-md-4 mb-3"><label>Khach hang *</label><select name="maKH" class="form-select" required><option value="">-- Chon --</option><?php $r=$conn->query("SELECT maKH,tenKH FROM KhachHang ORDER BY tenKH"); while($x=$r->fetch_assoc()){ $s = (($x['maKH']) === ($_POST['maKH'] ?? '')) ? 'selected' : ''; echo "<option value='{$x['maKH']}' $s>".htmlspecialchars($x['tenKH'])."</option>"; } ?></select></div>
-            <div class="col-md-4 mb-3"><label>Nhan vien lap *</label><select name="maNV_Lap" class="form-select" required><option value="">-- Chon --</option><?php $r=$conn->query("SELECT maNV,hoten FROM NhanVien ORDER BY hoten"); while($x=$r->fetch_assoc()){ $s = (($x['maNV']) === ($_POST['maNV_Lap'] ?? '')) ? 'selected' : ''; echo "<option value='{$x['maNV']}' $s>".htmlspecialchars($x['maNV'].' - '.$x['hoten'])."</option>"; } ?></select></div>
+            <div class="col-md-3 mb-3"><label>Ma HD *</label><input type="text" name="maHDong" class="form-control" value="<?= htmlspecialchars($_POST['maHDong'] ?? '') ?>" required></div>
+            <div class="col-md-4 mb-3"><label>Khach hang *</label><select name="maKH" class="form-select" required><option value="">-- Chon --</option><?php $r=$conn->query("SELECT maKH,tenKH FROM KhachHang ORDER BY tenKH"); $sel=$_POST['maKH']??''; while($x=$r->fetch_assoc()){ $s=($x['maKH']===$sel)?'selected':''; echo "<option value='" . htmlspecialchars($x['maKH']) . "' $s>" . htmlspecialchars($x['tenKH']) . "</option>"; } ?></select></div>
+            <div class="col-md-5 mb-3"><label>Nhan vien lap *</label><select name="maNV_Lap" class="form-select" required><option value="">-- Chon --</option><?php $r=$conn->query("SELECT maNV,hoten FROM NhanVien ORDER BY hoten"); $sel=$_POST['maNV_Lap']??''; while($x=$r->fetch_assoc()){ $s=($x['maNV']===$sel)?'selected':''; echo "<option value='" . htmlspecialchars($x['maNV']) . "' $s>" . htmlspecialchars($x['maNV'].' - '.$x['hoten']) . "</option>"; } ?></select></div>
 
-            <div class="col-md-3 mb-3"><label>Ngay ky</label><input type="date" name="ngayky" class="form-control" value="<?= htmlspecialchars($_POST['ngayky'] ?? date('Y-m-d')) ?>"></div>
+            <div class="col-md-3 mb-3"><label>Ngay ky</label><input type="date" name="ngayky" class="form-control" value="<?= htmlspecialchars($_POST['ngayky'] ?? '') ?>"></div>
             <div class="col-md-3 mb-3"><label>Ngay hieu luc</label><input type="date" name="ngayhieuluc" class="form-control" value="<?= htmlspecialchars($_POST['ngayhieuluc'] ?? '') ?>"></div>
             <div class="col-md-3 mb-3"><label>Ngay het han</label><input type="date" name="ngayhethan" class="form-control" value="<?= htmlspecialchars($_POST['ngayhethan'] ?? '') ?>"></div>
-            <div class="col-md-3 mb-3"><label>Thoi gian giao hang</label><input type="date" name="thoigiangiaohang" class="form-control" value="<?= htmlspecialchars($_POST['thoigiangiaohang'] ?? '') ?>"></div>
 
-            <div class="col-md-3 mb-3"><label>Thoi han thanh toan (ngay)</label><input type="number" name="thoihanthanhtoan" class="form-control" min="0" value="<?= htmlspecialchars($_POST['thoihanthanhtoan'] ?? '0') ?>"></div>
-            <div class="col-md-3 mb-3"><label>Tong truoc thue</label><input type="number" id="tongTruocThue" name="tongtruocthue" class="form-control" min="0" step="0.01" value="<?= htmlspecialchars($_POST['tongtruocthue'] ?? '0') ?>"></div>
-            <div class="col-md-3 mb-3"><label>Tien thue</label><input type="number" id="thueHopDong" name="thue" class="form-control" min="0" step="0.01" value="<?= htmlspecialchars($_POST['thue'] ?? '0') ?>"></div>
-            <div class="col-md-3 mb-3"><label>Tong gia tri HD</label><input type="number" id="tongGiaTriHopDong" name="tonggiatriHopDong" class="form-control" min="0" step="0.01" value="<?= htmlspecialchars($_POST['tonggiatriHopDong'] ?? '0') ?>" readonly></div>
+            <div class="col-md-3 mb-3"><label>Tong truoc thue</label><input type="number" id="ttr" name="tongtruocthue" class="form-control" min="0" step="0.01" value="<?= htmlspecialchars($_POST['tongtruocthue'] ?? '0') ?>"></div>
+            <div class="col-md-3 mb-3"><label>Thue (%)</label><input type="number" id="thue" name="thue" class="form-control" min="0" max="100" step="0.01" value="<?= htmlspecialchars($_POST['thue'] ?? '0') ?>"></div>
+            <div class="col-md-3 mb-3"><label>Tong gia tri HD</label><input type="number" id="tong" class="form-control" readonly></div>
 
-            <div class="col-md-6 mb-3">
-                <label>Phuong thuc thanh toan</label>
-                <?php $ptttValue = $_POST['phuongthucthanhtoan'] ?? 'Tien mat'; ?>
-                <select name="phuongthucthanhtoan" class="form-select">
-                    <option <?= $ptttValue === 'Tien mat' ? 'selected' : '' ?>>Tien mat</option>
-                    <option <?= $ptttValue === 'Chuyen khoan' ? 'selected' : '' ?>>Chuyen khoan</option>
-                    <option <?= $ptttValue === 'Cong no' ? 'selected' : '' ?>>Cong no</option>
-                </select>
-            </div>
-            <div class="col-md-6 mb-3">
-                <label>Trang thai</label>
-                <?php $trangThaiValue = $_POST['trangthai'] ?? 'Moi tao'; ?>
-                <select name="trangthai" class="form-select">
-                    <option <?= $trangThaiValue === 'Moi tao' ? 'selected' : '' ?>>Moi tao</option>
-                    <option <?= $trangThaiValue === 'Dang thuc hien' ? 'selected' : '' ?>>Dang thuc hien</option>
-                    <option <?= $trangThaiValue === 'Hoan thanh' ? 'selected' : '' ?>>Hoan thanh</option>
-                    <option <?= $trangThaiValue === 'Tam dung' ? 'selected' : '' ?>>Tam dung</option>
-                    <option <?= $trangThaiValue === 'Da huy' ? 'selected' : '' ?>>Da huy</option>
-                </select>
-            </div>
+            <div class="col-md-3 mb-3"><label>Phuong thuc TT</label><select name="phuongthucthanhtoan" class="form-select"><?php foreach($VALID_PTTT as $x){$s=(($_POST['phuongthucthanhtoan'] ?? 'Tien mat')===$x)?'selected':''; echo "<option $s>$x</option>";} ?></select></div>
+            <div class="col-md-3 mb-3"><label>Trang thai</label><select name="trangthai" class="form-select"><?php foreach($VALID_TT as $x){$s=(($_POST['trangthai'] ?? 'Moi tao')===$x)?'selected':''; echo "<option $s>$x</option>";} ?></select></div>
         </div>
 
         <button class="btn btn-success">Luu</button>
@@ -83,13 +126,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <script>
 function calcContractTotal() {
-    const truoc = parseFloat(document.getElementById('tongTruocThue').value) || 0;
-    const thue = parseFloat(document.getElementById('thueHopDong').value) || 0;
-    document.getElementById('tongGiaTriHopDong').value = (truoc + thue).toFixed(2);
+    const truoc = parseFloat(document.getElementById('ttr').value) || 0;
+    const thuePct = parseFloat(document.getElementById('thue').value) || 0;
+    const tienThue = truoc * thuePct / 100;
+    document.getElementById('tong').value = (truoc + tienThue).toFixed(2);
 }
-
-document.getElementById('tongTruocThue').addEventListener('input', calcContractTotal);
-document.getElementById('thueHopDong').addEventListener('input', calcContractTotal);
+document.getElementById('ttr').addEventListener('input', calcContractTotal);
+document.getElementById('thue').addEventListener('input', calcContractTotal);
 calcContractTotal();
 </script>
 

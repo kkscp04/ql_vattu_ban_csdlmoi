@@ -1,101 +1,138 @@
-<?php require_once __DIR__ . '/../../bootstrap.php'; ?>
 <?php
-$id = $conn->real_escape_string($_GET['id'] ?? '');
-if ($id === '') { header("Location: index.php"); exit; }
+require_once __DIR__ . '/../../bootstrap.php';
 
-$row = $conn->query("SELECT * FROM NhanVien WHERE maNV='$id'")->fetch_assoc();
-if (!$row) { echo "Không tìm thấy nhân viên"; exit; }
+$STATUS_OPTIONS = ['Dang lam viec', 'Tam nghi', 'Da nghi', 'Đang làm việc', 'Tạm nghỉ', 'Đã nghỉ'];
+$hasMaCV = db_table_has_column($conn, 'NhanVien', 'maCV');
+$hasChucVuText = db_table_has_column($conn, 'NhanVien', 'chucvu');
 
-$chucVuList = [];
+$chucVuMap = [];
 $cvRs = $conn->query("SELECT maCV, tenCV FROM ChucVu ORDER BY tenCV");
 if ($cvRs) {
-    while ($r = $cvRs->fetch_assoc()) $chucVuList[] = $r;
+    while ($cv = $cvRs->fetch_assoc()) {
+        $chucVuMap[$cv['maCV']] = $cv['tenCV'];
+    }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $ten = $conn->real_escape_string(trim($_POST['hoten'] ?? ''));
-    $sdt = $conn->real_escape_string(trim($_POST['sdt'] ?? ''));
-    $email = $conn->real_escape_string(trim($_POST['email'] ?? ''));
-    $trangThai = $conn->real_escape_string(trim($_POST['trangthai'] ?? ''));
-    $maCV = $conn->real_escape_string(trim($_POST['maCV'] ?? ''));
+$idRaw = $_GET['id'] ?? '';
+$row = db_fetch_one($conn, "SELECT * FROM NhanVien WHERE maNV = ? LIMIT 1", 's', [$idRaw]);
+if (!$row) {
+    echo "Nhân viên không tồn tại";
+    exit;
+}
+$id = $row['maNV'];
 
-    if ($ten === '' || $maCV === '') {
-        $error = "Vui lòng nhập họ tên và mã chức vụ.";
-    } elseif (!$chucVuList) {
-        $error = "Chưa có chức vụ nào trong hệ thống. Bạn cần tạo dữ liệu bảng Chức vụ trước khi sửa nhân viên.";
-    } else {
-        $checkCV = $conn->query("SELECT maCV FROM ChucVu WHERE maCV='$maCV' LIMIT 1");
-        if (!$checkCV || $checkCV->num_rows === 0) {
-            $error = "Mã chức vụ `$maCV` không tồn tại. Hãy nhập mã chức vụ có trong bảng Chức vụ.";
-        } else {
-            $sql = "UPDATE NhanVien
-                    SET hoten='$ten',
-                        sdt='$sdt',
-                        email='$email',
-                        trangthai='$trangThai',
-                        maCV='$maCV'
-                    WHERE maNV='$id'";
-            if ($conn->query($sql)) {
-                header("Location: index.php");
-                exit;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $hoten  = trim($_POST['hoten'] ?? '');
+    $sdt    = trim($_POST['sdt'] ?? '');
+    $email  = trim($_POST['email'] ?? '');
+    $tt     = trim($_POST['trangthai'] ?? '');
+    $maCV   = trim($_POST['maCV'] ?? '');
+    $chucVuText = trim($_POST['chucvu'] ?? '');
+    $errors = [];
+
+    if ($hoten === '') $errors[] = '[R01] Họ tên không được để trống.';
+    if ($hasMaCV && $maCV === '') $errors[] = '[R01] Chức vụ không được để trống.';
+    if ($hasChucVuText && $chucVuText === '') $errors[] = '[R01] Chức vụ không được để trống.';
+    if (mb_strlen($hoten) > 255) $errors[] = '[R03] Họ tên tối đa 255 ký tự.';
+    if (mb_strlen($email) > 100) $errors[] = '[R03] Email tối đa 100 ký tự.';
+    if ($tt !== '' && !in_array($tt, $STATUS_OPTIONS, true)) $errors[] = '[R07] Trạng thái không hợp lệ.';
+    if ($hasMaCV && $maCV !== '' && !db_exists($conn, "SELECT maCV FROM ChucVu WHERE maCV = ? LIMIT 1", 's', [$maCV])) {
+        $errors[] = "[R06] Mã chức vụ '$maCV' không tồn tại.";
+    }
+    if ($sdt !== '' && !preg_match('/^\d{1,20}$/', $sdt)) {
+        $errors[] = '[R08] SĐT chỉ gồm chữ số, tối đa 20 ký tự.';
+    }
+
+    if (empty($errors)) {
+        try {
+            if ($hasMaCV) {
+                $stmt = $conn->prepare(
+                    "UPDATE NhanVien SET hoten=?, sdt=?, email=?, trangthai=?, maCV=? WHERE maNV=?"
+                );
+                $stmt->bind_param('ssssss', $hoten, $sdt, $email, $tt, $maCV, $id);
+            } else {
+                $stmt = $conn->prepare(
+                    "UPDATE NhanVien SET hoten=?, sdt=?, email=?, trangthai=?, chucvu=? WHERE maNV=?"
+                );
+                $stmt->bind_param('ssssss', $hoten, $sdt, $email, $tt, $chucVuText, $id);
             }
-            $error = "Lỗi: " . $conn->error;
+            $stmt->execute();
+            $stmt->close();
+            header("Location: index.php");
+            exit;
+        } catch (Throwable $e) {
+            error_log('[NhanVien-Edit] ' . $e->getMessage());
+            $errors[] = 'Lỗi khi cập nhật. Vui lòng thử lại.';
         }
     }
+    $error = implode('<br>', $errors);
 }
 ?>
 <?php require_once APP_ROOT . '/shared/layout.php'; ?>
-
 <div class="card shadow p-4" style="max-width:900px; margin:0 auto;">
-    <h4 class="fw-bold mb-4"><i class="fas fa-user-edit"></i> Sửa Nhân Viên</h4>
+    <h4 class="fw-bold mb-4">Sửa Nhân Viên</h4>
     <?php if (isset($error)) echo "<div class='alert alert-danger'>$error</div>"; ?>
-
     <form method="POST">
         <div class="row">
-            <div class="col-md-6 mb-3">
+            <div class="col-md-4 mb-3">
                 <label>Mã NV</label>
-                <input type="text" class="form-control" value="<?= htmlspecialchars($row['maNV']) ?>" readonly>
+                <input class="form-control" value="<?= htmlspecialchars($id) ?>" readonly>
             </div>
-            <div class="col-md-6 mb-3">
+            <div class="col-md-8 mb-3">
                 <label>Họ tên <span class="text-danger">*</span></label>
-                <input type="text" name="hoten" class="form-control" value="<?= htmlspecialchars($_POST['hoten'] ?? $row['hoten']) ?>" required>
+                <input type="text" name="hoten" class="form-control"
+                       value="<?= htmlspecialchars($_POST['hoten'] ?? $row['hoten']) ?>" required>
             </div>
-            <div class="col-md-6 mb-3">
-                <label>Số điện thoại</label>
-                <input type="text" name="sdt" class="form-control" value="<?= htmlspecialchars($_POST['sdt'] ?? ($row['sdt'] ?? '')) ?>">
+            <div class="col-md-4 mb-3">
+                <label>SĐT</label>
+                <input type="text" name="sdt" class="form-control"
+                       value="<?= htmlspecialchars($_POST['sdt'] ?? ($row['sdt'] ?? '')) ?>">
             </div>
-            <div class="col-md-6 mb-3">
+            <div class="col-md-8 mb-3">
                 <label>Email</label>
-                <input type="email" name="email" class="form-control" value="<?= htmlspecialchars($_POST['email'] ?? ($row['email'] ?? '')) ?>">
+                <input type="email" name="email" class="form-control"
+                       value="<?= htmlspecialchars($_POST['email'] ?? ($row['email'] ?? '')) ?>">
             </div>
-            <div class="col-md-6 mb-3">
-                <label>Mã chức vụ <span class="text-danger">*</span></label>
-                <input type="text" name="maCV" class="form-control" list="danhSachChucVu" value="<?= htmlspecialchars($_POST['maCV'] ?? $row['maCV']) ?>" required>
-                <datalist id="danhSachChucVu">
-                    <?php foreach ($chucVuList as $cv) { ?>
-                        <option value="<?= htmlspecialchars($cv['maCV']) ?>"><?= htmlspecialchars($cv['tenCV']) ?></option>
-                    <?php } ?>
-                </datalist>
-                <?php if (!$chucVuList) { ?>
-                    <small class="text-muted">Hiện chưa có dữ liệu chức vụ trong bảng `ChucVu` để gợi ý.</small>
-                <?php } ?>
-            </div>
+
             <div class="col-md-6 mb-3">
                 <label>Trạng thái</label>
-                <?php $trangThaiValue = $_POST['trangthai'] ?? ($row['trangthai'] ?? ''); ?>
                 <select name="trangthai" class="form-select">
-                    <option <?= $trangThaiValue === 'Đang làm việc' ? 'selected' : '' ?>>Đang làm việc</option>
-                    <option <?= $trangThaiValue === 'Tạm nghỉ' ? 'selected' : '' ?>>Tạm nghỉ</option>
-                    <option <?= $trangThaiValue === 'Đã nghỉ' ? 'selected' : '' ?>>Đã nghỉ</option>
+                    <?php
+                    $cur = $_POST['trangthai'] ?? ($row['trangthai'] ?? '');
+                    foreach (['Đang làm việc', 'Tạm nghỉ', 'Đã nghỉ'] as $x) {
+                        $s = ($cur === $x) ? 'selected' : '';
+                        echo "<option $s>" . htmlspecialchars($x) . "</option>";
+                    }
+                    if ($cur !== '' && !in_array($cur, ['Đang làm việc', 'Tạm nghỉ', 'Đã nghỉ'], true)) {
+                        echo "<option selected>" . htmlspecialchars($cur) . "</option>";
+                    }
+                    ?>
                 </select>
             </div>
+            <div class="col-md-6 mb-3">
+                <?php if ($hasMaCV): ?>
+                    <label>Chức vụ <span class="text-danger">*</span></label>
+                    <select name="maCV" class="form-select" required>
+                        <option value="">-- Chọn --</option>
+                        <?php
+                        $curCV = $_POST['maCV'] ?? ($row['maCV'] ?? '');
+                        foreach ($chucVuMap as $code => $name) {
+                            $s = ($curCV === $code) ? 'selected' : '';
+                            echo "<option value='" . htmlspecialchars($code) . "' $s>"
+                                . htmlspecialchars($code . ' - ' . $name) . "</option>";
+                        }
+                        ?>
+                    </select>
+                <?php else: ?>
+                    <label>Chức vụ <span class="text-danger">*</span></label>
+                    <input type="text" name="chucvu" class="form-control"
+                           value="<?= htmlspecialchars($_POST['chucvu'] ?? ($row['chucvu'] ?? '')) ?>" required>
+                <?php endif; ?>
+            </div>
         </div>
-
-        <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Lưu</button>
-        <a href="index.php" class="btn btn-secondary"><i class="fas fa-times"></i> Hủy</a>
+        <button class="btn btn-warning">Cập nhật</button>
+        <a href="index.php" class="btn btn-secondary">Hủy</a>
     </form>
 </div>
+</div></body></html>
 
-</div>
-</body>
-</html>

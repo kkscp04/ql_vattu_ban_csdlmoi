@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>Quản lý vật tư</title>
+<title>Quan ly vat tu</title>
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
@@ -109,68 +109,30 @@ $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '';
 $isVatTuGroup = str_contains($currentPath, '/modules/vat-tu/')
     || str_contains($currentPath, '/modules/loai-vat-tu/')
     || str_contains($currentPath, '/modules/don-vi-tinh/')
-    || str_contains($currentPath, '/modules/danh-muc/')
-    || str_ends_with($currentPath, '/vattu.php')
-    || str_ends_with($currentPath, '/them_vattu.php')
-    || str_ends_with($currentPath, '/sua_vattu.php')
-    || str_ends_with($currentPath, '/xoa_vattu.php')
-    || str_ends_with($currentPath, '/danhmuc.php')
-    || str_ends_with($currentPath, '/themdanhmuc.php')
-    || str_ends_with($currentPath, '/sua_danhmuc.php')
-    || str_ends_with($currentPath, '/xoa_danhmuc.php')
-    || str_contains($currentPath, '/loaivt/')
-    || str_contains($currentPath, '/donvitinh/');
+    || str_contains($currentPath, '/modules/danh-muc/');
 
 $isKhoGroup = str_contains($currentPath, '/modules/phieu-nhap/')
+    || str_contains($currentPath, '/modules/phieu-xuat/')
+    || str_contains($currentPath, '/modules/ton-kho/')
     || str_contains($currentPath, '/modules/bien-ban-kiem-tra/')
-    || str_ends_with($currentPath, '/phieunhap.php')
-    || str_ends_with($currentPath, '/them_phieunhap.php')
-    || str_ends_with($currentPath, '/sua_phieunhap.php')
-    || str_ends_with($currentPath, '/xoa_phieunhap.php')
-    || str_ends_with($currentPath, '/chi_tiet_phieunhap.php');
+    || str_contains($currentPath, '/modules/phieu-kiem-ke/');
 
-$isNhaCungCap = str_contains($currentPath, '/modules/nha-cung-cap/')
-    || str_ends_with($currentPath, '/nhacungcap.php')
-    || str_ends_with($currentPath, '/them_nhacungcap.php')
-    || str_ends_with($currentPath, '/sua_nhacungcap.php')
-    || str_ends_with($currentPath, '/xoa_nhacungcap.php');
+$isNhaCungCap = str_contains($currentPath, '/modules/nha-cung-cap/');
+$isNhanVien = str_contains($currentPath, '/modules/nhan-vien/');
+$isKhachHang = str_contains($currentPath, '/modules/khach-hang/');
+$isHopDong = str_contains($currentPath, '/modules/hop-dong/');
+$isDonHang = str_contains($currentPath, '/modules/don-hang/');
+$isHoaDon = str_contains($currentPath, '/modules/hoa-don/');
 
-$isNhanVien = str_contains($currentPath, '/modules/nhan-vien/')
-    || str_ends_with($currentPath, '/nhanvien.php')
-    || str_ends_with($currentPath, '/them_nhanvien.php')
-    || str_ends_with($currentPath, '/sua_nhanvien.php')
-    || str_ends_with($currentPath, '/xoa_nhanvien.php');
+$isCongNoGroup = str_contains($currentPath, '/modules/cong-no-khach-hang/')
+    || str_contains($currentPath, '/modules/cong-no-nha-cung-cap/');
 
-$isKhachHang = str_contains($currentPath, '/modules/khach-hang/')
-    || str_ends_with($currentPath, '/khachhang.php')
-    || str_ends_with($currentPath, '/them_khachhang.php')
-    || str_ends_with($currentPath, '/sua_khachhang.php')
-    || str_ends_with($currentPath, '/xoa_khachhang.php');
-
-$isHopDong = str_contains($currentPath, '/modules/hop-dong/')
-    || str_ends_with($currentPath, '/hopdong.php')
-    || str_ends_with($currentPath, '/them_hopdong.php')
-    || str_ends_with($currentPath, '/sua_hopdong.php')
-    || str_ends_with($currentPath, '/xoa_hopdong.php')
-    || str_ends_with($currentPath, '/chi_tiet_hopdong.php');
-
-$isDonHang = str_contains($currentPath, '/modules/don-hang/')
-    || str_ends_with($currentPath, '/donhang.php')
-    || str_ends_with($currentPath, '/them_donhang.php')
-    || str_ends_with($currentPath, '/sua_donhang.php')
-    || str_ends_with($currentPath, '/xoa_donhang.php')
-    || str_ends_with($currentPath, '/chi_tiet_donhang.php');
-
-$isHoaDon = str_contains($currentPath, '/modules/hoa-don/')
-    || str_ends_with($currentPath, '/hoadon.php')
-    || str_ends_with($currentPath, '/them_hoadon.php')
-    || str_ends_with($currentPath, '/sua_hoadon.php')
-    || str_ends_with($currentPath, '/xoa_hoadon.php')
-    || str_ends_with($currentPath, '/chi_tiet_hoadon.php');
+$isBaoCao = str_contains($currentPath, '/modules/bao-cao-thong-ke/');
+$isHome = str_ends_with($currentPath, '/home.php') || $currentPath === '/' || $currentPath === '';
 ?>
 
 <div class="sidebar">
-    <a href="<?= app_url() ?>" class="sidebar-brand"><i class="fas fa-boxes"></i> QL Vật Tư</a>
+    <a href="<?= app_url('home.php') ?>" class="sidebar-brand"><i class="fas fa-boxes"></i> QL Vat Tu</a>
 
     <div class="nav-header">Menu</div>
 
@@ -178,15 +140,15 @@ $isHoaDon = str_contains($currentPath, '/modules/hoa-don/')
         <summary class="menu-toggle">
             <span class="left">
                 <i class="fas fa-box"></i>
-                <span>Quản lý vật tư</span>
+                <span>Quan ly vat tu</span>
             </span>
             <i class="fas fa-chevron-down arrow"></i>
         </summary>
         <div class="submenu">
-            <a href="<?= app_url('modules/vat-tu/index.php') ?>">Vật tư</a>
-            <a href="<?= app_url('modules/loai-vat-tu/index.php') ?>">Loại vật tư</a>
-            <a href="<?= app_url('modules/don-vi-tinh/index.php') ?>">Đơn vị tính</a>
-            <a href="<?= app_url('modules/danh-muc/index.php') ?>">Nhóm danh mục</a>
+            <a href="<?= app_url('modules/vat-tu/index.php') ?>">Vat tu</a>
+            <a href="<?= app_url('modules/loai-vat-tu/index.php') ?>">Loai vat tu</a>
+            <a href="<?= app_url('modules/don-vi-tinh/index.php') ?>">Don vi tinh</a>
+            <a href="<?= app_url('modules/danh-muc/index.php') ?>">Nhom danh muc</a>
         </div>
     </details>
 
@@ -194,23 +156,58 @@ $isHoaDon = str_contains($currentPath, '/modules/hoa-don/')
         <summary class="menu-toggle">
             <span class="left">
                 <i class="fas fa-warehouse"></i>
-                <span>Kho bãi</span>
+                <span>Kho bai</span>
             </span>
             <i class="fas fa-chevron-down arrow"></i>
         </summary>
         <div class="submenu">
-            <a href="<?= app_url('modules/bien-ban-kiem-tra/index.php') ?>">Biên bản kiểm tra</a>
-            <a href="<?= app_url('modules/phieu-nhap/index.php') ?>">Phiếu nhập</a>
+            <a href="<?= app_url('modules/bien-ban-kiem-tra/index.php') ?>">Bien ban kiem tra</a>
+            <a href="<?= app_url('modules/phieu-kiem-ke/index.php') ?>">Phieu kiem kho</a>
+            <a href="<?= app_url('modules/phieu-nhap/index.php') ?>">Phieu nhap</a>
+            <a href="<?= app_url('modules/phieu-xuat/index.php') ?>">Phieu xuat</a>
+            <a href="<?= app_url('modules/ton-kho/index.php') ?>">Ton kho</a>
         </div>
     </details>
 
-    <a href="<?= app_url('modules/nha-cung-cap/index.php') ?>"<?= $isNhaCungCap ? ' style="color: white; background: #494e53;"' : '' ?>><i class="fas fa-truck"></i> Nhà cung cấp</a>
-    <a href="<?= app_url('modules/nhan-vien/index.php') ?>"<?= $isNhanVien ? ' style="color: white; background: #494e53;"' : '' ?>><i class="fas fa-user-tie"></i> Nhân viên</a>
-    <a href="<?= app_url('modules/khach-hang/index.php') ?>"<?= $isKhachHang ? ' style="color: white; background: #494e53;"' : '' ?>><i class="fas fa-users"></i> Khách hàng</a>
-    <a href="<?= app_url('modules/hop-dong/index.php') ?>"<?= $isHopDong ? ' style="color: white; background: #494e53;"' : '' ?>><i class="fas fa-file-contract"></i> Hợp đồng</a>
-    <a href="<?= app_url('modules/don-hang/index.php') ?>"<?= $isDonHang ? ' style="color: white; background: #494e53;"' : '' ?>><i class="fas fa-shopping-cart"></i> Đơn hàng</a>
-    <a href="<?= app_url('modules/hoa-don/index.php') ?>"<?= $isHoaDon ? ' style="color: white; background: #494e53;"' : '' ?>><i class="fas fa-file-invoice-dollar"></i> Hóa đơn</a>
+    <a href="<?= app_url('modules/nha-cung-cap/index.php') ?>"<?= $isNhaCungCap ? ' style="color: white; background: #494e53;"' : '' ?>><i class="fas fa-truck"></i> Nha cung cap</a>
+    <a href="<?= app_url('modules/nhan-vien/index.php') ?>"<?= $isNhanVien ? ' style="color: white; background: #494e53;"' : '' ?>><i class="fas fa-user-tie"></i> Nhan vien</a>
+    <a href="<?= app_url('modules/khach-hang/index.php') ?>"<?= $isKhachHang ? ' style="color: white; background: #494e53;"' : '' ?>><i class="fas fa-users"></i> Khach hang</a>
+    <a href="<?= app_url('modules/hop-dong/index.php') ?>"<?= $isHopDong ? ' style="color: white; background: #494e53;"' : '' ?>><i class="fas fa-file-contract"></i> Hop dong</a>
+    <a href="<?= app_url('modules/don-hang/index.php') ?>"<?= $isDonHang ? ' style="color: white; background: #494e53;"' : '' ?>><i class="fas fa-shopping-cart"></i> Don hang</a>
+    <a href="<?= app_url('modules/hoa-don/index.php') ?>"<?= $isHoaDon ? ' style="color: white; background: #494e53;"' : '' ?>><i class="fas fa-file-invoice"></i> Hoa don</a>
+
+    <details <?= $isCongNoGroup ? 'open' : '' ?>>
+        <summary class="menu-toggle">
+            <span class="left">
+                <i class="fas fa-hand-holding-usd"></i>
+                <span>Quan ly cong no</span>
+            </span>
+            <i class="fas fa-chevron-down arrow"></i>
+        </summary>
+        <div class="submenu">
+            <a href="<?= app_url('modules/cong-no-khach-hang/index.php') ?>">Cong no Khach hang</a>
+            <a href="<?= app_url('modules/cong-no-nha-cung-cap/index.php') ?>">Cong no Nha cung cap</a>
+        </div>
+    </details>
+
+    <a href="<?= app_url('modules/bao-cao-thong-ke/index.php') ?>"<?= $isBaoCao ? ' style="color: white; background: #494e53;"' : '' ?>><i class="fas fa-chart-pie"></i> Bao cao thong ke</a>
 </div>
 
 <div class="main-content">
     <div class="container-fluid">
+        <?php $flash = flash_get(); ?>
+        <?php if ($flash && !empty($flash['message'])): ?>
+            <?php
+                $type = strtolower((string) ($flash['type'] ?? 'info'));
+                $alertClass = match ($type) {
+                    'success' => 'alert-success',
+                    'warning' => 'alert-warning',
+                    'danger', 'error' => 'alert-danger',
+                    default => 'alert-info',
+                };
+            ?>
+            <div class="alert <?= $alertClass ?>" role="alert">
+                <?= htmlspecialchars((string) $flash['message']) ?>
+            </div>
+        <?php endif; ?>
+

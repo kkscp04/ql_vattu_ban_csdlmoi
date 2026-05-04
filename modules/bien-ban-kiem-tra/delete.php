@@ -7,9 +7,14 @@ if ($id !== '') {
         $conn->query("DELETE FROM ChiTietKiemTra WHERE maBB='$id'");
         $conn->query("DELETE FROM BienBanKiemTra WHERE maBB='$id'");
         $conn->commit();
-    } catch (Exception $e) {
+        flash_set('success', "Xoa bien ban kiem tra '$id' thanh cong.");
+    } catch (Throwable $e) {
         $conn->rollback();
+        error_log("[BienBanKiemTra-Delete] maBB={$id} :: " . $e->getMessage());
+        flash_set('danger', "Xoa bien ban kiem tra '$id' that bai. Vui long thu lai.");
     }
+} else {
+    flash_set('warning', 'Khong tim thay ma bien ban can xoa.');
 }
 header("Location: index.php");
 exit;

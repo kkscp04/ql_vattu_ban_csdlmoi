@@ -1,111 +1,118 @@
-<?php require_once __DIR__ . '/../../bootstrap.php'; ?>
 <?php
-$id = $conn->real_escape_string($_GET['id'] ?? '');
-if ($id === '') { header("Location: index.php"); exit; }
+require_once __DIR__ . '/../../bootstrap.php';
 
-$rs = $conn->query("SELECT * FROM HopDong WHERE maHDong='$id'");
-$row = $rs ? $rs->fetch_assoc() : null;
-if (!$row) { echo "Khong tim thay hop dong"; exit; }
+$VALID_TT   = ['Mới tạo', 'Đang thực hiện', 'Hoàn thành', 'Hủy'];
+$VALID_PTTT = ['Tiền mặt', 'Chuyển khoản', 'Công nợ'];
+
+$idRaw = $_GET['id'] ?? '';
+$row = db_fetch_one($conn, "SELECT * FROM HopDong WHERE maHDong = ? LIMIT 1", 's', [$idRaw]);
+if (!$row) { echo "Hợp đồng không tồn tại"; exit; }
+$id = $row['maHDong'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $maKH = $conn->real_escape_string(trim($_POST['maKH'] ?? ''));
-    $maNV = $conn->real_escape_string(trim($_POST['maNV_Lap'] ?? ''));
-    $ngayky = $conn->real_escape_string($_POST['ngayky'] ?? date('Y-m-d'));
-    $ngayhieuluc = $conn->real_escape_string($_POST['ngayhieuluc'] ?? '');
-    $ngayhethan = $conn->real_escape_string($_POST['ngayhethan'] ?? '');
-    $thoigiangiaohang = $conn->real_escape_string($_POST['thoigiangiaohang'] ?? '');
-    $thoihanthanhtoan = (int) ($_POST['thoihanthanhtoan'] ?? 0);
-    $tongtruocthue = (float) ($_POST['tongtruocthue'] ?? 0);
-    $thue = (float) ($_POST['thue'] ?? 0);
-    $tonggiatri = $tongtruocthue + $thue;
-    $pttt = $conn->real_escape_string(trim($_POST['phuongthucthanhtoan'] ?? ''));
-    $trangthai = $conn->real_escape_string(trim($_POST['trangthai'] ?? ''));
+    $maKH      = trim($_POST['maKH']         ?? '');
+    $maNV      = trim($_POST['maNV_Lap']     ?? '');
+    $ngayHL    = $_POST['ngayhieuluc']       ?? '';
+    $ngayHH    = $_POST['ngayhethan']        ?? '';
+    $ngayKy    = $_POST['ngayky']            ?? '';
+    $truoc     = (float) ($_POST['tongtruocthue'] ?? 0);
+    $thue      = (float) ($_POST['thue']     ?? 0);
+    $pttt      = trim($_POST['phuongthucthanhtoan'] ?? '');
+    $trangthai = trim($_POST['trangthai']    ?? '');
+    $errors    = [];
 
-    if ($maKH === '' || $maNV === '') {
-        $error = "Vui long chon khach hang va nhan vien.";
-    } else {
-        $sql = "UPDATE HopDong SET
-                maKH='$maKH',
-                maNV_Lap='$maNV',
-                thoigiangiaohang=" . ($thoigiangiaohang !== '' ? "'$thoigiangiaohang 00:00:00'" : "NULL") . ",
-                ngayky='$ngayky 00:00:00',
-                thoihanthanhtoan=$thoihanthanhtoan,
-                tongtruocthue=$tongtruocthue,
-                thue=$thue,
-                tonggiatriHopDong=$tonggiatri,
-                ngayhieuluc=" . ($ngayhieuluc !== '' ? "'$ngayhieuluc 00:00:00'" : "NULL") . ",
-                trangthai='$trangthai',
-                ngayhethan=" . ($ngayhethan !== '' ? "'$ngayhethan 00:00:00'" : "NULL") . ",
-                phuongthucthanhtoan='$pttt'
-                WHERE maHDong='$id'";
-        if ($conn->query($sql)) { header("Location: index.php"); exit; }
-        $error = "Loi: " . $conn->error;
+    if ($maKH === '') $errors[] = '[R01] Khách hàng không được để trống.';
+    if ($maNV === '') $errors[] = '[R01] Nhân viên không được để trống.';
+    if ($maKH !== '' && !db_exists($conn, "SELECT maKH FROM KhachHang WHERE maKH = ? LIMIT 1", 's', [$maKH]))
+        $errors[] = "[R06] Khách hàng '$maKH' không tồn tại.";
+    if ($maNV !== '' && !db_exists($conn, "SELECT maNV FROM NhanVien WHERE maNV = ? LIMIT 1", 's', [$maNV]))
+        $errors[] = "[R06] Nhân viên '$maNV' không tồn tại.";
+    if (!in_array($trangthai, $VALID_TT, true))   $errors[] = '[R07] Trạng thái không hợp lệ.';
+    if (!in_array($pttt, $VALID_PTTT, true))      $errors[] = '[R07] Phương thức thanh toán không hợp lệ.';
+    if ($truoc < 0) $errors[] = '[R09] Tổng trước thuế phải >= 0.';
+    if ($thue < 0)  $errors[] = '[R09] Thuế phải >= 0.';
+    if ($ngayHL !== '' && strtotime($ngayHL) === false) $errors[] = '[R10] Ngày hiệu lực không hợp lệ.';
+    if ($ngayHH !== '' && strtotime($ngayHH) === false) $errors[] = '[R10] Ngày hết hạn không hợp lệ.';
+    if ($ngayHL !== '' && $ngayHH !== '' && strtotime($ngayHL) !== false && strtotime($ngayHH) !== false) {
+        if (strtotime($ngayHH) < strtotime($ngayHL))
+            $errors[] = '[R11] Ngày hết hạn phải >= ngày hiệu lực.';
     }
-}
 
-$form = $_SERVER['REQUEST_METHOD'] === 'POST' ? $_POST : $row;
+    if (empty($errors)) {
+        $tong      = $truoc + $thue;
+        $ngayHLFmt = $ngayHL !== '' ? date('Y-m-d H:i:s', strtotime($ngayHL)) : null;
+        $ngayHHFmt = $ngayHH !== '' ? date('Y-m-d H:i:s', strtotime($ngayHH)) : null;
+        $ngayKyFmt = $ngayKy !== '' ? date('Y-m-d H:i:s', strtotime($ngayKy))  : null;
+
+        try {
+            $stmt = $conn->prepare(
+                "UPDATE HopDong
+                 SET maKH=?, maNV_Lap=?, ngayky=?, ngayhieuluc=?, ngayhethan=?,
+                     tongtruocthue=?, thue=?, tonggiatriHopDong=?,
+                     phuongthucthanhtoan=?, trangthai=?
+                 WHERE maHDong=?"
+            );
+            $stmt->bind_param('sssssdddsss',
+                $maKH, $maNV, $ngayKyFmt, $ngayHLFmt, $ngayHHFmt,
+                $truoc, $thue, $tong,
+                $pttt, $trangthai, $id
+            );
+            $stmt->execute();
+            $stmt->close();
+            header("Location: index.php"); exit;
+        } catch (Throwable $e) {
+            error_log('[HopDong-Edit] ' . $e->getMessage());
+            $errors[] = 'Lỗi khi cập nhật. Vui lòng thử lại.';
+        }
+    }
+    $error = implode('<br>', $errors);
+}
+$form = ($_SERVER['REQUEST_METHOD'] === 'POST') ? $_POST : $row;
 ?>
 <?php require_once APP_ROOT . '/shared/layout.php'; ?>
-
 <div class="card shadow p-4" style="max-width:1000px; margin:0 auto;">
-    <h4 class="fw-bold mb-3">Sua Hop Dong</h4>
+    <h4 class="fw-bold mb-3">Sửa Hợp Đồng #<?= htmlspecialchars($id) ?></h4>
     <?php if (isset($error)) echo "<div class='alert alert-danger'>$error</div>"; ?>
-
     <form method="POST">
         <div class="row">
-            <div class="col-md-4 mb-3"><label>Ma HD</label><input type="text" class="form-control" value="<?= htmlspecialchars($row['maHDong']) ?>" readonly></div>
-            <div class="col-md-4 mb-3"><label>Khach hang *</label><select name="maKH" class="form-select" required><?php $r=$conn->query("SELECT maKH,tenKH FROM KhachHang ORDER BY tenKH"); while($x=$r->fetch_assoc()){ $s=(($x['maKH'])===($form['maKH'] ?? ''))?'selected':''; echo "<option value='{$x['maKH']}' $s>".htmlspecialchars($x['tenKH'])."</option>"; } ?></select></div>
-            <div class="col-md-4 mb-3"><label>Nhan vien lap *</label><select name="maNV_Lap" class="form-select" required><?php $r=$conn->query("SELECT maNV,hoten FROM NhanVien ORDER BY hoten"); while($x=$r->fetch_assoc()){ $s=(($x['maNV'])===($form['maNV_Lap'] ?? ''))?'selected':''; echo "<option value='{$x['maNV']}' $s>".htmlspecialchars($x['maNV'].' - '.$x['hoten'])."</option>"; } ?></select></div>
-
-            <div class="col-md-3 mb-3"><label>Ngay ky</label><input type="date" name="ngayky" class="form-control" value="<?= !empty($form['ngayky']) ? date('Y-m-d', strtotime($form['ngayky'])) : '' ?>"></div>
-            <div class="col-md-3 mb-3"><label>Ngay hieu luc</label><input type="date" name="ngayhieuluc" class="form-control" value="<?= !empty($form['ngayhieuluc']) ? date('Y-m-d', strtotime($form['ngayhieuluc'])) : '' ?>"></div>
-            <div class="col-md-3 mb-3"><label>Ngay het han</label><input type="date" name="ngayhethan" class="form-control" value="<?= !empty($form['ngayhethan']) ? date('Y-m-d', strtotime($form['ngayhethan'])) : '' ?>"></div>
-            <div class="col-md-3 mb-3"><label>Thoi gian giao hang</label><input type="date" name="thoigiangiaohang" class="form-control" value="<?= !empty($form['thoigiangiaohang']) ? date('Y-m-d', strtotime($form['thoigiangiaohang'])) : '' ?>"></div>
-
-            <div class="col-md-3 mb-3"><label>Thoi han thanh toan</label><input type="number" name="thoihanthanhtoan" class="form-control" min="0" value="<?= htmlspecialchars((string) ($form['thoihanthanhtoan'] ?? 0)) ?>"></div>
-            <div class="col-md-3 mb-3"><label>Tong truoc thue</label><input type="number" id="tongTruocThue" name="tongtruocthue" class="form-control" min="0" step="0.01" value="<?= htmlspecialchars((string) ($form['tongtruocthue'] ?? 0)) ?>"></div>
-            <div class="col-md-3 mb-3"><label>Tien thue</label><input type="number" id="thueHopDong" name="thue" class="form-control" min="0" step="0.01" value="<?= htmlspecialchars((string) ($form['thue'] ?? 0)) ?>"></div>
-            <div class="col-md-3 mb-3"><label>Tong gia tri HD</label><input type="number" id="tongGiaTriHopDong" name="tonggiatriHopDong" class="form-control" min="0" step="0.01" value="<?= htmlspecialchars((string) ($form['tonggiatriHopDong'] ?? 0)) ?>" readonly></div>
-
-            <div class="col-md-6 mb-3">
-                <label>Phuong thuc thanh toan</label>
-                <?php $ptttValue = $form['phuongthucthanhtoan'] ?? 'Tien mat'; ?>
-                <select name="phuongthucthanhtoan" class="form-select">
-                    <option <?= $ptttValue === 'Tien mat' ? 'selected' : '' ?>>Tien mat</option>
-                    <option <?= $ptttValue === 'Chuyen khoan' ? 'selected' : '' ?>>Chuyen khoan</option>
-                    <option <?= $ptttValue === 'Cong no' ? 'selected' : '' ?>>Cong no</option>
+            <div class="col-md-3 mb-3"><label>Mã HĐ</label><input class="form-control" value="<?= htmlspecialchars($id) ?>" readonly></div>
+            <div class="col-md-4 mb-3">
+                <label>Khách hàng <span class="text-danger">*</span></label>
+                <select name="maKH" class="form-select" required>
+                    <?php $rs=$conn->query("SELECT maKH,tenKH FROM KhachHang ORDER BY tenKH"); $sel=$form['maKH']??''; while($x=$rs->fetch_assoc()){$s=($x['maKH']===$sel)?'selected':''; echo "<option value='".htmlspecialchars($x['maKH'])."' $s>".htmlspecialchars($x['tenKH'])."</option>";} ?>
                 </select>
             </div>
-            <div class="col-md-6 mb-3">
-                <label>Trang thai</label>
-                <?php $trangThaiValue = $form['trangthai'] ?? 'Moi tao'; ?>
+            <div class="col-md-5 mb-3">
+                <label>Nhân viên lập <span class="text-danger">*</span></label>
+                <select name="maNV_Lap" class="form-select" required>
+                    <?php $rs=$conn->query("SELECT maNV,hoten FROM NhanVien ORDER BY hoten"); $sel=$form['maNV_Lap']??''; while($x=$rs->fetch_assoc()){$s=($x['maNV']===$sel)?'selected':''; echo "<option value='".htmlspecialchars($x['maNV'])."' $s>".htmlspecialchars($x['maNV'].' – '.$x['hoten'])."</option>";} ?>
+                </select>
+            </div>
+            <div class="col-md-3 mb-3"><label>Ngày ký</label><input type="date" name="ngayky" class="form-control" value="<?= !empty($row['ngayky']) ? date('Y-m-d', strtotime($row['ngayky'])) : '' ?>"></div>
+            <div class="col-md-3 mb-3"><label>Ngày hiệu lực</label><input type="date" name="ngayhieuluc" class="form-control" value="<?= !empty($row['ngayhieuluc']) ? date('Y-m-d', strtotime($row['ngayhieuluc'])) : '' ?>"></div>
+            <div class="col-md-3 mb-3"><label>Ngày hết hạn</label><input type="date" name="ngayhethan" class="form-control" value="<?= !empty($row['ngayhethan']) ? date('Y-m-d', strtotime($row['ngayhethan'])) : '' ?>"></div>
+            <div class="col-md-3 mb-3"><label>Tổng trước thuế</label><input type="number" id="ttr" name="tongtruocthue" class="form-control" min="0" step="0.01" value="<?= (float)($form['tongtruocthue'] ?? 0) ?>"></div>
+            <div class="col-md-3 mb-3"><label>Thuế</label><input type="number" id="thue" name="thue" class="form-control" min="0" step="0.01" value="<?= (float)($form['thue'] ?? 0) ?>"></div>
+            <div class="col-md-3 mb-3"><label>Tổng giá trị HĐ</label><input type="number" id="tong" class="form-control" readonly value="<?= (float)($form['tonggiatriHopDong'] ?? 0) ?>"></div>
+            <div class="col-md-3 mb-3">
+                <label>Phương thức TT</label>
+                <select name="phuongthucthanhtoan" class="form-select">
+                    <?php $cur=$form['phuongthucthanhtoan']??'Tiền mặt'; foreach($VALID_PTTT as $x){$s=($cur===$x)?'selected':''; echo "<option $s>$x</option>";} ?>
+                </select>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label>Trạng thái</label>
                 <select name="trangthai" class="form-select">
-                    <option <?= $trangThaiValue === 'Moi tao' ? 'selected' : '' ?>>Moi tao</option>
-                    <option <?= $trangThaiValue === 'Dang thuc hien' ? 'selected' : '' ?>>Dang thuc hien</option>
-                    <option <?= $trangThaiValue === 'Hoan thanh' ? 'selected' : '' ?>>Hoan thanh</option>
-                    <option <?= $trangThaiValue === 'Tam dung' ? 'selected' : '' ?>>Tam dung</option>
-                    <option <?= $trangThaiValue === 'Da huy' ? 'selected' : '' ?>>Da huy</option>
+                    <?php $cur=$form['trangthai']??'Mới tạo'; foreach($VALID_TT as $x){$s=($cur===$x)?'selected':''; echo "<option $s>$x</option>";} ?>
                 </select>
             </div>
         </div>
-
-        <button class="btn btn-warning">Cap nhat</button>
-        <a href="index.php" class="btn btn-secondary">Huy</a>
+        <button class="btn btn-warning">Cập nhật</button>
+        <a href="index.php" class="btn btn-secondary">Hủy</a>
     </form>
 </div>
-
 <script>
-function calcContractTotal() {
-    const truoc = parseFloat(document.getElementById('tongTruocThue').value) || 0;
-    const thue = parseFloat(document.getElementById('thueHopDong').value) || 0;
-    document.getElementById('tongGiaTriHopDong').value = (truoc + thue).toFixed(2);
-}
-
-document.getElementById('tongTruocThue').addEventListener('input', calcContractTotal);
-document.getElementById('thueHopDong').addEventListener('input', calcContractTotal);
-calcContractTotal();
+function calc(){const t=parseFloat(document.getElementById('ttr').value)||0;const th=parseFloat(document.getElementById('thue').value)||0;document.getElementById('tong').value=(t+th).toFixed(2);}
+document.getElementById('ttr').addEventListener('input',calc);document.getElementById('thue').addEventListener('input',calc);calc();
 </script>
-
-</div>
-</body>
-</html>
+</div></body></html>

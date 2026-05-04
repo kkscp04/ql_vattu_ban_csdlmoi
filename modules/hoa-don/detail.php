@@ -7,7 +7,7 @@ $row = $conn->query("
     SELECT h.*, n.hoten
     FROM HoaDon h
     LEFT JOIN NhanVien n ON h.maNV_Lap = n.maNV
-    WHERE h.maHDon='$id'
+    WHERE h.maHDon = '$id'
 ")->fetch_assoc();
 
 if (!$row) { echo "Không tìm thấy hóa đơn"; exit; }
@@ -21,16 +21,17 @@ if (!$row) { echo "Không tìm thấy hóa đơn"; exit; }
     </div>
 
     <p><strong>Số hóa đơn:</strong> <?= htmlspecialchars($row['sohoadon']) ?></p>
-    <p><strong>Đơn hàng:</strong> <?= htmlspecialchars($row['maDH']) ?></p>
+    <p><strong>Đơn hàng:</strong> <?= htmlspecialchars($row['maDH'] ?? '') ?></p>
+    <p><strong>Phiếu xuất:</strong> <?= htmlspecialchars($row['maPX'] ?? '') ?></p>
     <p><strong>Công nợ KH:</strong> <?= htmlspecialchars($row['maCNKH']) ?></p>
     <p><strong>Nhân viên lập:</strong> <?= htmlspecialchars($row['hoten'] ?? '') ?></p>
     <p><strong>Ngày tạo:</strong> <?= !empty($row['ngaytao']) ? date('d/m/Y', strtotime($row['ngaytao'])) : '' ?></p>
     <p><strong>Loại hóa đơn:</strong> <?= htmlspecialchars($row['loaihoadon']) ?></p>
     <p><strong>Địa chỉ:</strong> <?= htmlspecialchars($row['diachi']) ?></p>
-    <p><strong>Tổng trước thuế:</strong> <?= number_format((float)$row['tongtientruocthue']) ?> đ</p>
-    <p><strong>VAT:</strong> <?= (int)$row['thuevat'] ?>%</p>
-    <p><strong>Tiền thuế:</strong> <?= number_format((float)$row['tienthue']) ?> đ</p>
-    <p><strong>Tổng tiền:</strong> <span class="text-danger fw-bold"><?= number_format((float)$row['tongtien']) ?> đ</span></p>
+    <p><strong>Tổng trước thuế:</strong> <?= number_format((float) $row['tongtientruocthue']) ?> đ</p>
+    <p><strong>VAT:</strong> <?= (float) $row['thuevat'] ?>%</p>
+    <p><strong>Tiền thuế:</strong> <?= number_format((float) $row['tienthue']) ?> đ</p>
+    <p><strong>Tổng tiền:</strong> <span class="text-danger fw-bold"><?= number_format((float) $row['tongtien']) ?> đ</span></p>
     <p><strong>Phương thức thanh toán:</strong> <?= htmlspecialchars($row['phuongthucthanhtoan']) ?></p>
     <p><strong>Trạng thái:</strong> <?= htmlspecialchars($row['trangthai']) ?></p>
     <p><strong>Ngày thanh toán:</strong> <?= !empty($row['ngaythanhtoan']) ? date('d/m/Y', strtotime($row['ngaythanhtoan'])) : '' ?></p>

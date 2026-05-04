@@ -230,6 +230,7 @@ CREATE TABLE `donvitinh` (
 CREATE TABLE `hoadon` (
   `maHDon` varchar(50) NOT NULL,
   `maDH` varchar(50) DEFAULT NULL,
+  `maPX` varchar(50) DEFAULT NULL,
   `maCNKH` varchar(50) DEFAULT NULL,
   `maNV_Lap` varchar(50) DEFAULT NULL,
   `ngaytao` datetime DEFAULT NULL,
@@ -409,6 +410,8 @@ CREATE TABLE `phieuthanhly` (
 
 CREATE TABLE `phieuxuat` (
   `maPX` varchar(50) NOT NULL,
+  `maDH` varchar(50) DEFAULT NULL,
+  `loaiXuat` varchar(50) DEFAULT NULL,
   `maNV_Lap` varchar(50) DEFAULT NULL,
   `ngayxuat` datetime DEFAULT NULL,
   `ghichu` text DEFAULT NULL,
@@ -575,6 +578,7 @@ ALTER TABLE `donvitinh`
 ALTER TABLE `hoadon`
   ADD PRIMARY KEY (`maHDon`),
   ADD KEY `FK_HDon_DonHang` (`maDH`),
+  ADD KEY `FK_HDon_PhieuXuat` (`maPX`),
   ADD KEY `FK_HDon_CongNoKH` (`maCNKH`),
   ADD KEY `FK_HDon_NhanVien` (`maNV_Lap`);
 
@@ -654,6 +658,7 @@ ALTER TABLE `phieuthanhly`
 --
 ALTER TABLE `phieuxuat`
   ADD PRIMARY KEY (`maPX`),
+  ADD KEY `FK_PX_DonHang` (`maDH`),
   ADD KEY `FK_PX_NhanVien` (`maNV_Lap`);
 
 --
@@ -774,6 +779,7 @@ ALTER TABLE `donhang`
 ALTER TABLE `hoadon`
   ADD CONSTRAINT `FK_HDon_CongNoKH` FOREIGN KEY (`maCNKH`) REFERENCES `congnokh` (`maCNKH`),
   ADD CONSTRAINT `FK_HDon_DonHang` FOREIGN KEY (`maDH`) REFERENCES `donhang` (`maDH`),
+  ADD CONSTRAINT `FK_HDon_PhieuXuat` FOREIGN KEY (`maPX`) REFERENCES `phieuxuat` (`maPX`),
   ADD CONSTRAINT `FK_HDon_NhanVien` FOREIGN KEY (`maNV_Lap`) REFERENCES `nhanvien` (`maNV`);
 
 --
@@ -826,6 +832,7 @@ ALTER TABLE `phieuthanhly`
 -- Các ràng buộc cho bảng `phieuxuat`
 --
 ALTER TABLE `phieuxuat`
+  ADD CONSTRAINT `FK_PX_DonHang` FOREIGN KEY (`maDH`) REFERENCES `donhang` (`maDH`),
   ADD CONSTRAINT `FK_PX_NhanVien` FOREIGN KEY (`maNV_Lap`) REFERENCES `nhanvien` (`maNV`);
 
 --
